@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="res_config_settings_view_form" model="ir.ui.view">
+    <field name="name">res.config.settings.view.form.inherit.sale</field>
+    <field name="model">res.config.settings</field>
+    <field name="priority" eval="101"/>
+    <field name="inherit_id" ref="website_sale.res_config_settings_view_form"/>
+    <field name="arch" type="xml">
+      <div id="website_settings" position="after">
+         <h2>Configuración General Webpay</h2>
+         <div class="row mt16 o_settings_container">
+          <div class="col-xs-12 col-md-6 o_setting_box" id="webpay_commerce_code">
+            <div class="o_setting_left_pane"></div>
+            <div class="o_setting_right_pane" name="webpay_commerce_code_pane">
+                <label string="Código Webpay del Comercio" for="webpay_commerce_code"/>
+                <field name="webpay_commerce_code" />
+                <div class="text-muted">
+                   Código Comercio Webpay
+                </div>
+              </div>
+            </div>
+            <div class="col-xs-12 col-md-6 o_setting_box" id="webpay_private_cert">
+                <div class="o_setting_left_pane"></div>
+                <div class="o_setting_right_pane" name="webpay_private_cert_panel">
+                    <label string="Certificado Privado" for="webpay_private_cert"/>
+                    <field name="webpay_private_key" />
+                    <div class="text-muted">
+                       Certificado Privado del Comercio
+                    </div>
+                </div>
+             </div>
+             <div class="col-xs-12 col-md-6 o_setting_box" id="webpay_public_cert">
+                <div class="o_setting_left_pane"></div>
+                <div class="o_setting_right_pane" name="webpay_public_cert_pane">
+                    <label string="Certificado Público" for="webpay_public_cert"/>
+                    <field name="webpay_public_cert" />
+                    <div class="text-muted">
+                       Certificado Público del Comercio
+                    </div>
+                </div>
+             </div>
+             <div class="col-xs-12 col-md-6 o_setting_box" id="webpay_cert">
+                <div class="o_setting_left_pane"></div>
+                <div class="o_setting_right_pane" name="webpay_cert_panel">
+                    <label string="Webpay Cert" for="webpay_Cert"/>
+                    <field name="webpay_cert" />
+                    <div class="text-muted">
+                       Certificado Público de Webpay
+                    </div>
+                </div>
+             </div>
+          </div>
+      </div>
+    </field>
+  </record>
+</odoo>

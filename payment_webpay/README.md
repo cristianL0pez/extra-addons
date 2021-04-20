@@ -42,5 +42,6 @@ Mes de Expiración 	      Cualquiera
 CVV 	                    123
 
 En la simulación del banco usar: 	
-Rut 	11.111.111-1
+Rut 	11.111.1
+11-1
 Clave 	123

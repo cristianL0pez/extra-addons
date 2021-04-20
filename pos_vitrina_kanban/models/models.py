@@ -13,3 +13,10 @@ from odoo import models, fields, api
 #     @api.depends('value')
 #     def _value_pc(self):
 #         self.value2 = float(self.value) / 100
+
+
+# -*- coding: utf-8 -*-
+from odoo import models, fields, api
+
+class posdata(models.Model):
+    _inherit = 'pos_order'

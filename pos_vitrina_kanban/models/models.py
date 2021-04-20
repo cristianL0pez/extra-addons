@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from odoo import models, fields, api
+#from odoo import models, fields, api
 
 # class pos_vitrina_kanban(models.Model):
 #     _name = 'pos_vitrina_kanban.pos_vitrina_kanban'
@@ -19,4 +19,4 @@ from odoo import models, fields, api
 from odoo import models, fields, api
 
 class posdata(models.Model):
-    _inherit = 'pos_order'
+    _inherit = 'pos.order'

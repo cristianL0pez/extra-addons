@@ -4,7 +4,7 @@
     
     <record model="ir.ui.view" id="pos_vitrina_kanban.list">
       <field name="name">pos_vitrina_kanban list</field>
-      <field name="model">pos_vitrina_kanban_test.pos_vitrina_kanban_test</field>
+      <field name="model">pos_vitrina_kanban</field>
       <field name="arch" type="xml">
         <tree>
           <field name="name"/>

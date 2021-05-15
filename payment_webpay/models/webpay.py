@@ -4,27 +4,16 @@ from odoo import api, models, fields
 from odoo.tools import float_round, DEFAULT_SERVER_DATE_FORMAT
 from odoo.tools.float_utils import float_compare, float_repr
 from odoo.tools.translate import _
-from odoo.exceptions import UserError
-from base64 import b64decode
-import os
 
 _logger = logging.getLogger(__name__)
 try:
-    from suds.client import Client
-    from suds.wsse import Security
-    from .wsse.suds import WssePlugin
-    from suds.transport.https import HttpTransport
-    from suds.cache import ObjectCache
-    cache_path = "/tmp/{0}-suds".format(os.getuid())
-    cache = ObjectCache(cache_path)
+    from transbank.webpay.webpay_plus.transaction import *
+    from transbank.webpay.webpay_plus import WebpayPlus
+    from transbank.webpay.webpay_plus import webpay_plus_default_commerce_code, default_api_key
 except Exception as e:
-    _logger.warning("No Load suds or wsse: %s" %str(e))
+    _logger.warning("No Load transbank: %s" %str(e))
 
-URLS ={
-    'integ': 'https://webpay3gint.transbank.cl/WSWebpayTransaction/cxf/WSWebpayService?wsdl',
-    'test': 'https://webpay3gint.transbank.cl/WSWebpayTransaction/cxf/WSWebpayService?wsdl',
-    'prod': 'https://webpay3g.transbank.cl/WSWebpayTransaction/cxf/WSWebpayService?wsdl',
-}
+
 
 
 class PaymentAcquirerWebpay(models.Model):
@@ -41,14 +30,8 @@ class PaymentAcquirerWebpay(models.Model):
     webpay_commer_code = fields.Char(
             string="Commerce Code"
         )
-    webpay_private_key = fields.Binary(
-            string="User Private Key",
-        )
-    webpay_public_cert = fields.Binary(
-            string="User Public Cert",
-        )
-    webpay_cert = fields.Binary(
-            string='Webpay Cert',
+    webpay_api_key_secret = fields.Char(
+            string="Api Secret Key",
         )
     webpay_mode = fields.Selection(
             [
@@ -115,7 +98,7 @@ class PaymentAcquirerWebpay(models.Model):
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
         values.update({
             'business': self.company_id.name,
-            'item_name': '%s: %s' % (self.company_id.name, values['reference']),
+            'item_name': values['reference'].split('-')[0],
             'item_number': values['reference'],
             'amount': values['amount'],
             'currency_code': values['currency'] and values['currency'].name or '',
@@ -136,22 +119,6 @@ class PaymentAcquirerWebpay(models.Model):
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
         return base_url + '/payment/webpay/redirect'
 
-    def get_private_key(self):
-        webpay_private_key = self.webpay_private_key
-        if self.webpay_mode == 'mall':
-            ICPSudo = self.env['ir.config_parameter']
-            webpay_private_key = ICPSudo.get_param(
-                        'webpay.private_key')
-        return b64decode(webpay_private_key)
-
-    def get_public_cert(self):
-        webpay_public_cert = self.webpay_public_cert
-        if self.webpay_mode == 'mall':
-            ICPSudo = self.env['ir.config_parameter']
-            webpay_public_cert = ICPSudo.get_param(
-                        'webpay.public_cert')
-        return b64decode(webpay_public_cert)
-
     def get_WebPay_cert(self):
         webpay_cert = self.webpay_cert
         if self.webpay_mode == 'mall':
@@ -161,21 +128,11 @@ class PaymentAcquirerWebpay(models.Model):
         return b64decode(webpay_cert)
 
     def get_client(self,):
-        transport = HttpTransport()
-        wsse = Security()
-        return Client(
-            self._get_webpay_urls(),
-            transport=transport,
-            wsse=wsse,
-            plugins=[
-                WssePlugin(
-                    keyfile=self.sudo().get_private_key(),
-                    certfile=self.sudo().get_public_cert(),
-                    their_certfile=self.sudo().get_WebPay_cert(),
-                ),
-            ],
-            cache=cache,
-        )
+        if self.environment == 'test':
+            WebpayPlus.configure_for_integration(webpay_plus_default_commerce_code, default_api_key)
+        else:
+            WebpayPlus.configure_for_production(self.webpay_commer_code, self.webpay_api_key_secret)
+        return Transaction
 
     def details(self, client,  post):
         detail = client.factory.create('wsTransactionDetail')
@@ -187,7 +144,7 @@ class PaymentAcquirerWebpay(models.Model):
             ('name', '=', post.get('currency', 'CLP')),
         ])
         if self.force_currency and currency != self.force_currency_id:
-            amount = lambda price: currency._convert(
+            amount = currency._convert(
                                 amount,
                                 self.force_currency_id,
                                 self.company_id,
@@ -209,24 +166,30 @@ class PaymentAcquirerWebpay(models.Model):
         ICPSudo = self.env['ir.config_parameter'].sudo()
         base_url = ICPSudo.get_param('web.base.url')
         client = self.get_client()
-        client.options.cache.clear()
-        init = client.factory.create('wsInitTransactionInput')
-        init.wSTransactionType = client.factory.create('wsTransactionType').TR_NORMAL_WS
-        init.commerceId = self.webpay_commer_code
-        if self.webpay_mode == "mall":
-            init.wSTransactionType = client.factory.create('wsTransactionType').TR_MALL_WS
-            init.commerceId = ICPSudo.get_param(
-                        'webpay.commerce_code')
-        init.buyOrder = post['item_number']
-        init.sessionId = post['item_name']
-        init.returnURL = base_url + '/payment/webpay/return/'+str(self.id)
-        init.finalURL = post['return_url'] + '/' + str(self.id)
-        for detail in self.details(client, post):
-            init.transactionDetails.append(detail)
-        init.wPMDetail = client.factory.create('wpmDetailInput')
-        wsInitTransactionOutput = client.service.initTransaction(init)
-
-        return wsInitTransactionOutput
+        fees = post.get('fees', 0.0)
+        if fees == '':
+            fees = 0
+        amount = (float(post['amount']) + float(fees))
+        currency = self.env['res.currency'].search([
+            ('name', '=', post.get('currency', 'CLP')),
+        ])
+        if self.force_currency and currency != self.force_currency_id:
+            amount = currency._convert(
+                                amount,
+                                self.force_currency_id,
+                                self.company_id,
+                                datetime.now())
+            currency = self.force_currency_id
+        _logger.warning(amount)
+        amount = currency.round(amount)
+        _logger.warning(amount)
+        response = client.create(
+            post['item_name'],
+            post['item_number'],
+            amount,
+            base_url + '/payment/webpay/return/'+str(self.id)
+        )
+        return response
 
 
 class PaymentTxWebpay(models.Model):
@@ -242,6 +205,9 @@ class PaymentTxWebpay(models.Model):
             ('NC', 'N Cuotas sin interés'),
         ],
        string="Webpay Tipo Transacción")
+    webpay_token = fields.Char(
+            string="Webpay Token"
+        )
 
     """
     getTransaction
@@ -252,20 +218,16 @@ class PaymentTxWebpay(models.Model):
     @api.multi
     def getTransaction(self, acquirer_id, token):
         client = acquirer_id.get_client()
-        client.options.cache.clear()
-        transactionResultOutput = client.service.getTransactionResult(token)
-        return transactionResultOutput
+        response = client.commit(token)
+        return response
 
     @api.multi
     def _webpay_form_get_invalid_parameters(self, data):
         invalid_parameters = []
-
-        if data.sessionId != '%s: %s' % (self.acquirer_id.company_id.name, self.reference):
-            invalid_parameters.append(('reference', data.sessionId, '%s: %s' % (self.acquirer_id.company_id.name, self.reference)))
-        if data.buyOrder != self.reference:
-            invalid_parameters.append(('reference', data.buyOrder, self.reference))
-        # check what is buyed
-        amount = (self.amount + self.acquirer_id.compute_fees(self.amount, self.currency_id.id, self.partner_country_id.id))
+        if data.session_id != self.reference:
+            invalid_parameters.append(('reference', data.session_id,
+                                       self.reference))
+        amount = (self.amount + self.acquirer_id.webpay_compute_fees(self.amount, self.currency_id.id, self.partner_country_id.id))
         currency = self.currency_id
         if self.acquirer_id.force_currency and currency != self.acquirer_id.force_currency_id:
             amount = lambda price: currency._convert(
@@ -275,14 +237,14 @@ class PaymentTxWebpay(models.Model):
                                 datetime.now())
             currency = self.acquirer_id.force_currency_id
         amount = currency.round(amount)
-        if data.detailOutput[0].amount != amount:
-            invalid_parameters.append(('amount', data.detailOutput[0].amount, amount))
+        if data.amount != amount:
+            invalid_parameters.append(('amount', data.amount, amount))
 
         return invalid_parameters
 
     @api.model
     def _webpay_form_get_tx_from_data(self, data):
-        reference, txn_id = data.buyOrder, data.sessionId
+        txn_id, reference = data.buy_order, data.session_id
         if not reference or not txn_id:
             error_msg = _('Webpay: received data with missing reference (%s) or txn_id (%s)') % (reference, txn_id)
             _logger.info(error_msg)
@@ -306,18 +268,16 @@ class PaymentTxWebpay(models.Model):
                 '0': 'Transacción aprobada.',
                 '-1': 'Rechazo de transacción.',
                 '-2': 'Transacción debe reintentarse.',
-                '-3': 'Error en transacción.',
-                '-4': 'Rechazo de transacción.',
-                '-5': 'Rechazo por error de tasa.',
-                '-6': 'Excede cupo máximo mensual.',
-                '-7': 'Excede límite diario por transacción.',
-                '-8': 'Rubro no autorizado.',
+                '-3': 'Rechazo - Interno Transbank.',
+                '-4': 'Rechazo - Rechazada por parte del emisor.',
+                '-5': 'Rechazo - Transacción con riesgo de posible fraude.',
             }
-        status = str(data.detailOutput[0].responseCode)
+        status = str(data.response_code)
         res = {
-            'acquirer_reference': data.detailOutput[0].authorizationCode,
-            'webpay_txn_type': data.detailOutput[0].paymentTypeCode,
-            #'date': data.transactionDate,
+            'acquirer_reference': data.authorization_code,
+            'webpay_txn_type': data.payment_type_code,
+            'date_validate': data.transaction_date,
+            'webpay_token': data.token,
         }
         if status in ['0']:
             _logger.info('Validated webpay payment for tx %s: set as done' % (self.reference))
@@ -344,6 +304,5 @@ class PaymentTxWebpay(models.Model):
     """
     def acknowledgeTransaction(self, acquirer_id, token):
         client = acquirer_id.get_client()
-        client.options.cache.clear()
-        acknowledge = client.service.acknowledgeTransaction(token)
-        return acknowledge
+        datos = client.status(token)
+        return datos

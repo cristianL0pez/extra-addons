@@ -70,7 +70,7 @@ class WebpayController(http.Controller):
         '/payment/webpay/test/return',
     ], type='http', auth='public', csrf=False, website=True)
     def webpay_form_feedback(self, acquirer_id=None, **post):
-        """ Webpay contacts using GET, at least for accept """
+        """ Webpay contacts using GET, at le    ast for accept """
         _logger.warning('Webpay: entering form_feedback with post data %s', pprint.pformat(post))  # debug
         token_ws = post.get('token_ws') or post.get('TBK_TOKEN')
         try:
@@ -88,33 +88,21 @@ class WebpayController(http.Controller):
             Puede ser vacío si la transacción no se autenticó.
         '''
         if resp:
-            if request.env['payment.transaction'].sudo().form_feedback(resp, 'webpay'):
-                request.env['payment.transaction'].acknowledgeTransaction(acquirer_id, token_ws)
-                if resp.VCI in ['TSY'] and str(resp.detailOutput[0].responseCode) in ['0']:
-                    values = {
-                                'url': resp.urlRedirection,
-                                'token_ws': token_ws
-                            }
-                    return request.render('payment_webpay.webpay_redirect', values)
-                request.website.sale_reset()
-            else:
-                tx.write({'state': 'error', 'state_message': 'Pago cancelado (No coincide lo pagado con lo esperado)'})
+            resp.token = token_ws
+            if not request.env['payment.transaction'].sudo().form_feedback(resp, 'webpay'):
+                tx = request.env['payment.transaction'].search([
+                    ('reference', '=', resp.session_id)])
+                tx.write({
+                    'state': 'cancel',
+                    'state_message': 'Pago cancelado (No coincide lo pagado con lo esperado)'
+                })
         elif post.get('TBK_ORDEN_COMPRA'):
             tx = request.env['payment.transaction'].sudo().search([
-                            ('reference', '=', post.get('TBK_ORDEN_COMPRA'))
+                            ('reference', '=', post.get('TBK_ID_SESION'))
                             ])
-            tx.write({'state': 'error', 'state_message': 'Pago cancelado (abortado en formulario Webpay)'})
-        return werkzeug.utils.redirect('/shop/confirmation')
-
-    @http.route([
-        '/payment/webpay/final/<model("payment.acquirer"):acquirer_id>',
-    ], type='http', auth='public', csrf=False, website=True)
-    def final(self, acquirer_id=False, **post):
-        """ Webpay contacts using GET, at least for accept """
-        _logger.info('Webpay: entering End with post data %s', pprint.pformat(post))  # debug
-        if post.get('TBK_TOKEN'):
-            return self.webpay_form_feedback(acquirer_id, **post)
-        return werkzeug.utils.redirect('/shop/payment/validate')
+            tx.webpay_token = post.get('TBK_TOKEN')
+            tx._set_transaction_cancel()
+        return werkzeug.utils.redirect('/payment/process')
 
     @http.route(['/payment/webpay/s2s/create_json'], type='json', auth='public', csrf=False)
     def webpay_s2s_create_json(self, **kwargs):
@@ -148,9 +136,9 @@ class WebpayController(http.Controller):
         result = acquirer.initTransaction(post)
         urequest = pool.request(
                                 'GET',
-                                result['url'],
+                                result.url,
                                 {
-                                    'token_ws': result['token']
+                                    'token_ws': result.token
                                 })
         resp = urequest.data
         values = {

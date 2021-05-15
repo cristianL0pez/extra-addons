@@ -10,19 +10,12 @@
     'description': """Webpay Payment Acquirer""",
     'depends': [
                 'payment',
-                'website_sale',
                 'payment_currency',
             ],
         'external_dependencies': {
             'python':[
-            'suds',
-            #'wsse',
-            'xmlsec',
             'urllib3',
-            # En Debian/Ubuntu:
-            # sudo apt-get install libssl-dev libxml2-dev libxmlsec1-dev
-            #    Sistemas basados en RedHat:
-            # sudo yum install openssl-devel libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel
+            'transbank',
         ],
     },
     'data': [
@@ -30,7 +23,6 @@
         'views/payment_acquirer.xml',
         'views/res_config_settings.xml',
         'views/payment_transaction.xml',
-        'views/website_sale_template.xml',
         'data/webpay.xml',
     ],
     'installable': True,

@@ -7,48 +7,43 @@
     <field name="inherit_id" ref="website_sale.res_config_settings_view_form"/>
     <field name="arch" type="xml">
       <div id="website_settings" position="after">
-         <h2>Configuración General Webpay</h2>
+         <h2>Configuración Modo MALL Webpay</h2>
+         <p class="text-muted">¡DEBE TENER CERTIFICACIÓN Y CÓDIGO DE COMERCIO DEL TIPO ESPECÍFICO MALL PARA RELLENAR AQUÍ, SI TIENE WEBPAY NORMAL, DEBE IR A LA CONFIGURACIÓN DE LA PASARELA DE PAGO (MEDIOS DE PAGO) EN SITIO WEB</p>
          <div class="row mt16 o_settings_container">
+           <div class="col-xs-12 col-md-6 o_setting_box" id="webpay_mode_mall">
+             <div class="o_setting_left_pane">
+               <field name="webpay_mall" />
+               <div class="text-muted">
+                  Debe tener certificación mall aprobada, no sirve webpay normal por aquí
+               </div>
+             </div>
+             <div class="o_setting_right_pane" name="webpay_mode_mall_pane">
+                 <label string="Activar Modo Mall" for="webpay_mall"/>
+              </div>
+           </div>
+         </div>
+         <div class="row mt16 o_settings_container" attrs="{'invisible':[('webpay_mall', '=', False)]}">
           <div class="col-xs-12 col-md-6 o_setting_box" id="webpay_commerce_code">
             <div class="o_setting_left_pane"></div>
             <div class="o_setting_right_pane" name="webpay_commerce_code_pane">
                 <label string="Código Webpay del Comercio" for="webpay_commerce_code"/>
                 <field name="webpay_commerce_code" />
                 <div class="text-muted">
-                   Código Comercio Webpay
+                   Código Comercio Webpay MALL
                 </div>
               </div>
             </div>
-            <div class="col-xs-12 col-md-6 o_setting_box" id="webpay_private_cert">
-                <div class="o_setting_left_pane"></div>
-                <div class="o_setting_right_pane" name="webpay_private_cert_panel">
-                    <label string="Certificado Privado" for="webpay_private_cert"/>
-                    <field name="webpay_private_key" />
-                    <div class="text-muted">
-                       Certificado Privado del Comercio
-                    </div>
-                </div>
-             </div>
-             <div class="col-xs-12 col-md-6 o_setting_box" id="webpay_public_cert">
-                <div class="o_setting_left_pane"></div>
-                <div class="o_setting_right_pane" name="webpay_public_cert_pane">
-                    <label string="Certificado Público" for="webpay_public_cert"/>
-                    <field name="webpay_public_cert" />
-                    <div class="text-muted">
-                       Certificado Público del Comercio
-                    </div>
-                </div>
-             </div>
-             <div class="col-xs-12 col-md-6 o_setting_box" id="webpay_cert">
-                <div class="o_setting_left_pane"></div>
-                <div class="o_setting_right_pane" name="webpay_cert_panel">
-                    <label string="Webpay Cert" for="webpay_Cert"/>
-                    <field name="webpay_cert" />
-                    <div class="text-muted">
-                       Certificado Público de Webpay
-                    </div>
-                </div>
-             </div>
+            <div class="col-xs-12 col-md-6 o_setting_box" id="webpay_api_key_secret">
+              <div class="o_setting_left_pane"></div>
+              <div class="o_setting_right_pane" name="webpay_api_key_secret_panel">
+                  <label string="Api KEY Secret" for="webpay_api_key_secret"/>
+                  <field name="webpay_api_key_secret" />
+                  <div class="text-muted">
+                     Api Key Secret MALL
+                  </div>
+              </div>
+            </div>
+
           </div>
       </div>
     </field>
